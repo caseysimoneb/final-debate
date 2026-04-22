@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Debate Position Tracker — DES INV 201</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f0f0f;
+      --surface:   #181818;
+      --border:    #2a2a2a;
+      --border-hi: #3d3d3d;
+      --text:      #e8e4dc;
+      --muted:     #7a7570;
+      --accent:    #c8b99a;
+      --agree:     #7aab8a;
+      --disagree:  #c47d6e;
+      --warn:      #c4a76e;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+      --font-serif:'Georgia', 'Times New Roman', serif;
+    }
+    html { font-size: 16px; background: var(--bg); color: var(--text); }
+    body { font-family: var(--font-sans); min-height: 100vh; }
+    button { cursor: pointer; font-family: inherit; }
+    select { font-family: inherit; }
+
+    /* ── Layout ── */
+    #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Top Nav ── */
+    .top-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.5rem;
+      height: 56px;
+    }
+    .nav-brand {
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .nav-tabs { display: flex; gap: 0; }
+    .nav-tab {
+      background: none; border: none;
+      padding: .5rem 1.1rem;
+      font-size: .8rem;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .nav-instructor {
+      background: none; border: 1px solid var(--border);
+      padding: .35rem .85rem;
+      font-size: .75rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-radius: 3px;
+      transition: color .15s, border-color .15s;
+    }
+    .nav-instructor:hover { color: var(--text); border-color: var(--border-hi); }
+    .nav-instructor.active { color: var(--accent); border-color: var(--accent); }
+
+    /* ── Main ── */
+    .main { flex: 1; padding: 2.5rem 1.5rem 4rem; max-width: 680px; margin: 0 auto; width: 100%; }
+
+    /* ── Round Header ── */
+    .round-label {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+    .resolution {
+      font-family: var(--font-serif);
+      font-size: 1.45rem;
+      line-height: 1.4;
+      color: var(--text);
+      margin-bottom: 1.25rem;
+    }
+    .phase-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: .25rem .6rem;
+      border-radius: 2px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+    .phase-badge.pre  { color: var(--warn); border-color: var(--warn); }
+    .phase-badge.post { color: var(--agree); border-color: var(--agree); }
+
+    /* ── Divider ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 1.75rem 0; }
+
+    /* ── Slider ── */
+    .slider-section { margin-bottom: 2rem; }
+    .slider-endpoints {
+      display: flex; justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .6rem;
+    }
+    .slider-endpoints span.agree    { color: var(--agree); }
+    .slider-endpoints span.disagree { color: var(--disagree); }
+    .slider-wrap {
+      position: relative;
+      height: 48px;
+      display: flex;
+      align-items: center;
+    }
+    .slider-track {
+      position: absolute;
+      left: 0; right: 0;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .slider-fill {
+      position: absolute;
+      left: 0;
+      height: 4px;
+      background: linear-gradient(to right, var(--agree), var(--disagree));
+      border-radius: 2px;
+      pointer-events: none;
+      transition: width .05s;
+    }
+    .slider-markers {
+      position: absolute;
+      left: 0; right: 0;
+      pointer-events: none;
+    }
+    .slider-marker {
+      position: absolute;
+      width: 2px; height: 10px;
+      background: var(--border-hi);
+      border-radius: 1px;
+      top: 50%; transform: translate(-50%, -50%);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      position: relative; z-index: 2;
+      width: 100%; height: 48px;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 3px solid var(--bg);
+      box-shadow: 0 0 0 2px var(--border-hi);
+      transition: box-shadow .15s;
+    }
+    input[type="range"]:focus::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px var(--accent);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 3px solid var(--bg);
+      box-shadow: 0 0 0 2px var(--border-hi);
+    }
+    .slider-value {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: .3rem;
+    }
+
+    /* ── Dropdown ── */
+    .field-label {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+      display: block;
+    }
+    .name-select {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: .75rem 1rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7570' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      padding-right: 2.5rem;
+      transition: border-color .15s;
+    }
+    .name-select:focus { outline: none; border-color: var(--accent); }
+    .name-select option { background: #1e1e1e; }
+
+    /* ── Submit ── */
+    .submit-btn {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: .9rem 1.5rem;
+      font-size: .85rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      transition: opacity .15s;
+    }
+    .submit-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .submit-btn:not(:disabled):hover { opacity: .88; }
+
+    /* ── Messages ── */
+    .message {
+      margin-top: 1rem;
+      padding: .75rem 1rem;
+      border-radius: 4px;
+      font-size: .88rem;
+      border-left: 3px solid;
+    }
+    .message.success { background: rgba(122,171,138,.1); border-color: var(--agree); color: var(--agree); }
+    .message.warning { background: rgba(196,167,110,.1); border-color: var(--warn); color: var(--warn); }
+    .message.error   { background: rgba(196,125,110,.1); border-color: var(--disagree); color: var(--disagree); }
+
+    /* ── Closed / Locked states ── */
+    .state-card {
+      padding: 2.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .state-card .icon { font-size: 2rem; margin-bottom: 1rem; opacity: .5; }
+    .state-card h3 {
+      font-family: var(--font-mono);
+      font-size: .85rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+    .state-card p { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+    .countdown {
+      font-family: var(--font-mono);
+      font-size: 1.8rem;
+      color: var(--warn);
+      margin-top: .75rem;
+    }
+
+    /* ── Results View ── */
+    .results-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .results-title {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .round-result-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .round-result-card .res-round {
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+    .round-result-card .res-resolution {
+      font-family: var(--font-serif);
+      font-size: 1.05rem;
+      color: var(--text);
+      margin-bottom: 1.2rem;
+      line-height: 1.4;
+    }
+
+    .stats-row {
+      display: flex; gap: 1rem; margin-bottom: 1.25rem;
+    }
+    .stat-box {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .75rem;
+      text-align: center;
+    }
+    .stat-box .stat-val {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      color: var(--text);
+    }
+    .stat-box .stat-label {
+      font-family: var(--font-mono);
+      font-size: .6rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: .2rem;
+    }
+
+    /* Avg position read-only slider */
+    .avg-slider-section { margin-bottom: 1.2rem; }
+    .avg-slider-label {
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+    .avg-slider-track {
+      position: relative;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-bottom: .4rem;
+    }
+    .avg-marker {
+      position: absolute;
+      top: 50%; transform: translate(-50%, -50%);
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+    }
+    .avg-marker.pre  { background: var(--muted); }
+    .avg-marker.post { background: var(--accent); }
+    .avg-legend {
+      display: flex; gap: 1.2rem;
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      color: var(--muted);
+    }
+    .avg-legend span { display: flex; align-items: center; gap: .35rem; }
+    .leg-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .leg-dot.pre  { background: var(--muted); }
+    .leg-dot.post { background: var(--accent); }
+
+    /* Movement bars */
+    .movement-section { margin-bottom: 1.25rem; }
+    .movement-label {
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .6rem;
+    }
+    .move-row {
+      display: flex; align-items: center; gap: .75rem;
+      margin-bottom: .45rem;
+    }
+    .move-name {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--muted);
+      width: 100px; flex-shrink: 0;
+      text-align: right;
+    }
+    .move-bar-wrap {
+      flex: 1; height: 10px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .move-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .4s ease;
+    }
+    .move-bar.agree    { background: var(--agree); }
+    .move-bar.disagree { background: var(--disagree); }
+    .move-bar.none     { background: var(--border-hi); }
+    .move-count {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--muted);
+      width: 24px; flex-shrink: 0;
+    }
+
+    /* Winner */
+    .winner-banner {
+      padding: .85rem 1.1rem;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+    }
+    .winner-banner .winner-label {
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .winner-banner .winner-val {
+      font-family: var(--font-mono);
+      font-size: .9rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .winner-banner.affirmative .winner-val { color: var(--agree); }
+    .winner-banner.negative    .winner-val { color: var(--disagree); }
+    .winner-banner.tie         .winner-val { color: var(--warn); }
+    .winner-banner.no-data     .winner-val { color: var(--muted); }
+
+    /* Instructor Controls */
+    .controls-section { margin-top: 2rem; }
+    .controls-title {
+      font-family: var(--font-mono);
+      font-size: .65rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .control-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.1rem;
+      margin-bottom: .75rem;
+    }
+    .control-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .75rem;
+    }
+    .control-card-title {
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .control-status {
+      font-family: var(--font-mono);
+      font-size: .62rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: .2rem .5rem;
+      border-radius: 2px;
+    }
+    .control-status.open   { background: rgba(122,171,138,.15); color: var(--agree); }
+    .control-status.closed { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .control-status.locked { background: rgba(196,167,110,.12); color: var(--warn); }
+    .control-btns { display: flex; gap: .5rem; }
+    .ctrl-btn {
+      flex: 1;
+      padding: .55rem .8rem;
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--muted);
+      transition: all .15s;
+    }
+    .ctrl-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .ctrl-btn.open-btn:not(:disabled):hover  { border-color: var(--agree); color: var(--agree); }
+    .ctrl-btn.close-btn:not(:disabled):hover { border-color: var(--disagree); color: var(--disagree); }
+    .ctrl-btn.active { border-color: var(--accent); color: var(--accent); }
+    .lock-warning {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      color: var(--warn);
+      margin-top: .5rem;
+    }
+
+    /* QR placeholder */
+    .qr-section {
+      margin-top: 2.5rem;
+      padding: 1.5rem;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      text-align: center;
+    }
+    .qr-section p {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+    .qr-url {
+      font-family: var(--font-mono);
+      font-size: .8rem;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .top-nav { padding: 0 1rem; }
+      .nav-brand { display: none; }
+      .main { padding: 1.75rem 1rem 3rem; }
+      .resolution { font-size: 1.2rem; }
+      .stats-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+// ── Firebase Config ────────────────────────────────────────────────────────
+// STEP 1: Replace these placeholder values with your Firebase project config
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB9L4OH8chuCTl0T0bztuahfv9JyzB6Ln0",
+  authDomain: "final-debate-201.firebaseapp.com",
+  databaseURL: "https://final-debate-201-default-rtdb.firebaseio.com",
+  projectId: "final-debate-201",
+  storageBucket: "final-debate-201.firebasestorage.app",
+  messagingSenderId: "239432511766",
+  appId: "1:239432511766:web:5f79466f92c774df63e037",
+  measurementId: "G-9F6GZVC3YX"
+};
+// ── Constants ──────────────────────────────────────────────────────────────
+const STUDENTS = [
+  "Alexis","Alistair","Bryce","Chandiya","Charlotte (Charlie)",
+  "Chunyu (Naomi)","Chuxuan","Cody","Congruo","Daiwei","Edna","Elisa",
+  "Hengjia (Amy)","Ida","Insun","Isabella","Ishani","Jacob (Jake)",
+  "Jesselin","Jie (J-RY)","Jillian","Joy","Kenya","Luis","Mandy",
+  "Meghana (Megzu)","Nassirah","Nengi","Nikhilesh","Olivia","Paola",
+  "Precious","Qian","Rose (Tianyu)","Runming (Eva)","Ruo-Lin","Samyukta",
+  "Sanjana","Sarah","Sasicha (May)","Skye","Tala","Thomas","Tiffany",
+  "Vivian","Xiaoao (Alvin)","Yichen","Yue (Wendy)","Yutong",
+  "Zhiqi (Angy)","Zhitao (Vincent)"
+];
+
+const ROUNDS = [
+  { id: 1, label: "Match 1", resolution: "Ornamentation is always a mistake." },
+  { id: 2, label: "Match 2", resolution: "Design can only imagine the future by borrowing from a nostalgic vision of the past." },
+  { id: 3, label: "Match 3", resolution: "Form always follows function in design." },
+];
+
+// Team rosters — members use STUDENTS dropdown values
+const TEAMS = {
+  ad_hominem: {
+    name: "Team Ad Hominem",
+    members: [
+      "Nassirah","Thomas","Insun","Chunyu (Naomi)","Sasicha (May)",
+      "Zhiqi (Angy)","Congruo","Paola","Precious","Xiaoao (Alvin)",
+      "Alexis","Vivian","Bryce","Ida","Sarah","Nikhilesh","Qian","Yutong"
+    ]
+  },
+  ednas_team: {
+    name: "Edna's Team",
+    members: [
+      "Kenya","Yichen","Tiffany","Jie (J-RY)","Edna","Hengjia (Amy)",
+      "Luis","Meghana (Megzu)","Mandy","Skye","Alistair",
+      "Yue (Wendy)","Jesselin","Joy","Tala","Jacob (Jake)","Jillian"
+    ]
+  },
+  team_tofu: {
+    name: "Team Tofu",
+    members: [
+      "Ishani","Nengi","Elisa","Ruo-Lin","Isabella","Chuxuan",
+      "Samyukta","Rose (Tianyu)","Zhitao (Vincent)","Olivia",
+      "Sanjana","Runming (Eva)","Cody","Charlotte (Charlie)","Daiwei","Chandiya"
+    ]
+  }
+};
+
+// Which teams are Aff/Neg per match
+const MATCH_TEAMS = {
+  1: { aff: "ad_hominem", neg: "ednas_team" },
+  2: { aff: "ednas_team", neg: "team_tofu" },
+  3: { aff: "team_tofu",  neg: "ad_hominem" }
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+// phases is synced from Firebase; localState is per-device UI only
+let phases = {};
+let localState = { activeTab: 1, view: "student" };
+let db = null;
+
+function defaultPhases() {
+  const p = {};
+  ROUNDS.forEach(r => {
+    p[r.id] = {
+      pre:  { open: false, closedAt: null, submissions: {} },
+      post: { open: false, closedAt: null, submissions: {} },
+    };
+  });
+  return p;
+}
+
+function normalizePhases(data) {
+  const p = defaultPhases();
+  if (!data) return p;
+  ROUNDS.forEach(r => {
+    const rd = data[r.id] || data[String(r.id)];
+    if (!rd) return;
+    ["pre","post"].forEach(ph => {
+      if (!rd[ph]) return;
+      p[r.id][ph].open      = rd[ph].open      || false;
+      p[r.id][ph].closedAt  = rd[ph].closedAt  || null;
+      p[r.id][ph].submissions = rd[ph].submissions || {};
+    });
+  });
+  return p;
+}
+
+// ── Firebase Init ──────────────────────────────────────────────────────────
+const FIREBASE_READY = FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
+
+function initFirebase() {
+  if (!FIREBASE_READY) {
+    // Firebase not configured yet — run in local demo mode
+    phases = defaultPhases();
+    render();
+    return;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    db.ref("debate/phases").on("value", snap => {
+      phases = normalizePhases(snap.val());
+      render();
+    }, err => {
+      console.error("Firebase read error:", err);
+      phases = defaultPhases();
+      render();
+    });
+  } catch(e) {
+    console.error("Firebase init error:", e);
+    phases = defaultPhases();
+    render();
+  }
+}
+
+function setLocal(updater) {
+  updater(localState);
+  render();
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function computeResults(roundId) {
+  const { pre, post } = phases[roundId];
+  const preSubs  = pre.submissions  || {};
+  const postSubs = post.submissions || {};
+
+  const preNames  = Object.keys(preSubs);
+  const postNames = Object.keys(postSubs);
+  const paired    = preNames.filter(n => postSubs[n] !== undefined);
+
+  let movedAgree = 0, movedDisagree = 0, noMove = 0;
+  let agreeTotal = 0, disagreeTotal = 0;
+
+  paired.forEach(name => {
+    const diff = postSubs[name] - preSubs[name]; // positive = moved toward disagree
+    if (diff === 0) {
+      noMove++;
+    } else if (diff < 0) {
+      movedAgree++;
+      agreeTotal += Math.abs(diff);
+    } else {
+      movedDisagree++;
+      disagreeTotal += Math.abs(diff);
+    }
+  });
+
+  let winner = "no-data";
+  let winnerLabel = "—";
+  if (paired.length > 0) {
+    if (movedAgree > movedDisagree) {
+      winner = "affirmative"; winnerLabel = "Affirmative";
+    } else if (movedDisagree > movedAgree) {
+      winner = "negative"; winnerLabel = "Negative";
+    } else if (movedAgree === movedDisagree && movedAgree === 0) {
+      winner = "tie"; winnerLabel = "Tie — No Movement";
+    } else {
+      // Tiebreaker: larger average magnitude
+      const avgAgree    = movedAgree    > 0 ? agreeTotal    / movedAgree    : 0;
+      const avgDisagree = movedDisagree > 0 ? disagreeTotal / movedDisagree : 0;
+      if (avgAgree > avgDisagree)    { winner = "affirmative"; winnerLabel = "Affirmative (tiebreaker)"; }
+      else if (avgDisagree > avgAgree){ winner = "negative";    winnerLabel = "Negative (tiebreaker)"; }
+      else                           { winner = "tie";          winnerLabel = "Tie"; }
+    }
+  }
+
+  const preVals  = preNames.map(n => preSubs[n]);
+  const postVals = postNames.map(n => postSubs[n]);
+  const avgPre   = preVals.length  ? preVals.reduce((a,b)=>a+b,0)  / preVals.length  : null;
+  const avgPost  = postVals.length ? postVals.reduce((a,b)=>a+b,0) / postVals.length : null;
+
+  return {
+    preCount: preNames.length, postCount: postNames.length, pairedCount: paired.length,
+    movedAgree, movedDisagree, noMove,
+    avgPre, avgPost,
+    winner, winnerLabel,
+    maxMove: Math.max(movedAgree, movedDisagree, noMove, 1),
+  };
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const root = document.getElementById("app");
+  root.innerHTML = "";
+
+  const nav  = renderNav();
+  const main = document.createElement("main");
+  main.className = "main";
+
+  if (localState.view === "instructor") {
+    main.appendChild(renderInstructor());
+  } else {
+    main.appendChild(renderStudent());
+  }
+
+  root.appendChild(nav);
+  root.appendChild(main);
+
+  attachListeners();
+}
+
+// ── Nav ────────────────────────────────────────────────────────────────────
+function renderNav() {
+  const nav = document.createElement("nav");
+  nav.className = "top-nav";
+
+  nav.innerHTML = `
+    <span class="nav-brand">DES INV 201 — Final Debate</span>
+    <div class="nav-tabs" id="round-tabs">
+      ${ROUNDS.map(r => `
+        <button class="nav-tab ${localState.view === "student" && localState.activeTab === r.id ? "active" : ""}"
+          data-round="${r.id}" data-action="switch-round">
+          Match ${r.id}
+        </button>
+      `).join("")}
+    </div>
+    <button class="nav-instructor ${localState.view === "instructor" ? "active" : ""}"
+      data-action="toggle-instructor">
+      ${localState.view === "instructor" ? "Student View" : "Results (Instructor)"}
+    </button>
+  `;
+  return nav;
+}
+
+// ── Student View ───────────────────────────────────────────────────────────
+function renderStudent() {
+  const frag = document.createDocumentFragment();
+  const round = ROUNDS.find(r => r.id === localState.activeTab);
+  const { pre, post } = phases[round.id];
+
+  // Determine current phase
+  let phase = null;
+  if (pre.open)  phase = "pre";
+  if (post.open) phase = "post";
+
+  const el = document.createElement("div");
+
+  el.innerHTML = `
+    <div class="round-label">Match ${round.id}</div>
+    <div class="resolution">${round.resolution}</div>
+    ${phase
+      ? `<span class="phase-badge ${phase}">${phase === "pre" ? "Pre-Debate" : "Post-Debate"} Submission Open</span>`
+      : `<span class="phase-badge">Submissions Closed</span>`
+    }
+    <hr class="divider" />
+  `;
+
+  if (phase) {
+    el.appendChild(renderSubmitForm(round, phase));
+  } else {
+    // Show which windows are available
+    const card = document.createElement("div");
+    card.className = "state-card";
+
+    if (!pre.closedAt && !pre.open && !post.open) {
+      card.innerHTML = `
+        <div class="icon">◎</div>
+        <h3>Awaiting Instructor</h3>
+        <p>The instructor will open the pre-debate submission window shortly.</p>
+      `;
+    } else if (pre.closedAt && !post.open && !post.closedAt) {
+      card.innerHTML = `
+        <div class="icon">◎</div>
+        <h3>Awaiting Post-Debate Window</h3>
+        <p>The instructor will open the post-debate submission window when the debate concludes.</p>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="icon">✓</div>
+        <h3>Submissions Closed</h3>
+        <p>Both submission windows for this round have closed.</p>
+      `;
+    }
+    el.appendChild(card);
+  }
+
+  frag.appendChild(el);
+  return frag;
+}
+
+function getStudentTeam(name) {
+  for (const [teamId, team] of Object.entries(TEAMS)) {
+    if (team.members.includes(name)) return teamId;
+  }
+  return null;
+}
+
+function renderSubmitForm(round, phase) {
+  const wrapper = document.createElement("div");
+
+  wrapper.innerHTML = `
+    <div style="margin-bottom: 1.5rem;">
+      <label class="field-label" for="name-select-${round.id}">Your Name</label>
+      <select class="name-select" id="name-select-${round.id}"
+        data-round="${round.id}" data-phase="${phase}">
+        <option value="">Select your name</option>
+        ${STUDENTS.map(s => `<option value="${s}">${s}</option>`).join("")}
+      </select>
+    </div>
+    <div id="form-action-${round.id}"></div>
+  `;
+
+  return wrapper;
+}
+
+function renderSliderForm(roundId, phase) {
+  return `
+    <div class="slider-section">
+      <label class="field-label">Your Position</label>
+      <div class="slider-endpoints">
+        <span class="agree">Agree</span>
+        <span class="disagree">Disagree</span>
+      </div>
+      <div class="slider-wrap">
+        <div class="slider-track"></div>
+        <div class="slider-fill" id="slider-fill-${roundId}" style="width:50%"></div>
+        <div class="slider-markers">
+          <div class="slider-marker" style="left:25%"></div>
+          <div class="slider-marker" style="left:50%"></div>
+          <div class="slider-marker" style="left:75%"></div>
+        </div>
+        <input type="range" id="position-slider-${roundId}"
+          min="0" max="100" value="50"
+          data-round="${roundId}" data-phase="${phase}" />
+      </div>
+      <div class="slider-value" id="slider-val-${roundId}">Neutral</div>
+    </div>
+    <button class="submit-btn" id="submit-btn-${roundId}"
+      data-round="${roundId}" data-phase="${phase}" disabled>
+      Submit Position
+    </button>
+    <div id="submit-msg-${roundId}"></div>
+  `;
+}
+
+// ── Instructor View ────────────────────────────────────────────────────────
+function renderInstructor() {
+  const frag = document.createDocumentFragment();
+
+  const header = document.createElement("div");
+  header.innerHTML = `
+    <div class="results-header">
+      <span class="results-title">Results &amp; Controls — Instructor View</span>
+    </div>
+  `;
+  frag.appendChild(header);
+
+  ROUNDS.forEach(round => {
+    frag.appendChild(renderRoundResult(round));
+  });
+
+  // QR / URL share section
+  const qr = document.createElement("div");
+  qr.className = "qr-section";
+  qr.innerHTML = `
+    <p>Student Access URL</p>
+    <div class="qr-url" id="share-url">${window.location.href.split("?")[0]}</div>
+    <p style="margin-top:.75rem;">Share this URL or display it for students to scan as a QR code.</p>
+  `;
+  frag.appendChild(qr);
+
+  // Reset section
+  const resetEl = document.createElement("div");
+  resetEl.style.cssText = "margin-top:2rem;padding:1.25rem;border:1px solid #3d1a1a;border-radius:6px;background:rgba(196,125,110,.05);";
+  resetEl.innerHTML = `
+    <div style="font-family:var(--font-mono);font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;">Danger Zone</div>
+    <button id="reset-btn" style="width:100%;padding:.75rem;font-family:var(--font-mono);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;background:none;border:1px solid #c47d6e;color:#c47d6e;border-radius:4px;cursor:pointer;">
+      Reset All Data
+    </button>
+    <p style="font-family:var(--font-mono);font-size:.62rem;color:var(--muted);margin-top:.5rem;text-align:center;">Clears all submissions and closes all windows</p>
+  `;
+  frag.appendChild(resetEl);
+
+  return frag;
+}
+
+function renderRoundResult(round) {
+  const results = computeResults(round.id);
+  const { pre, post } = phases[round.id];
+  const card = document.createElement("div");
+  card.className = "round-result-card";
+
+  const mt = MATCH_TEAMS[round.id];
+  const affTeamName = TEAMS[mt.aff].name;
+  const negTeamName = TEAMS[mt.neg].name;
+
+  // Phase statuses
+  const preStatus  = pre.open  ? "open"  : pre.closedAt  ? "closed" : "closed";
+  const postStatus = post.open ? "open" : post.closedAt ? "closed" : "closed";
+
+  const pctAgree    = results.pairedCount > 0 ? (results.movedAgree    / results.pairedCount) * 100 : 0;
+  const pctDisagree = results.pairedCount > 0 ? (results.movedDisagree / results.pairedCount) * 100 : 0;
+  const pctNone     = results.pairedCount > 0 ? (results.noMove        / results.pairedCount) * 100 : 0;
+
+  const tiebreak = results.winnerLabel.includes("tiebreaker") ? " (tiebreaker)" : "";
+  const winnerLabel = results.winner === "affirmative" ? affTeamName + tiebreak
+    : results.winner === "negative" ? negTeamName + tiebreak
+    : results.winnerLabel;
+
+  card.innerHTML = `
+    <div class="res-round">Match ${round.id}</div>
+    <div class="res-resolution">${round.resolution}</div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-val">${results.preCount}</div>
+        <div class="stat-label">Pre Submissions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${results.postCount}</div>
+        <div class="stat-label">Post Submissions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${results.pairedCount}</div>
+        <div class="stat-label">Paired</div>
+      </div>
+    </div>
+
+    ${results.avgPre !== null || results.avgPost !== null ? `
+    <div class="avg-slider-section">
+      <div class="avg-slider-label">Average Position Shift</div>
+      <div class="avg-slider-track">
+        ${results.avgPre  !== null ? `<div class="avg-marker pre"  style="left:${results.avgPre}%"></div>`  : ""}
+        ${results.avgPost !== null ? `<div class="avg-marker post" style="left:${results.avgPost}%"></div>` : ""}
+      </div>
+      <div class="avg-legend">
+        <span><i class="leg-dot pre"></i>Pre avg: ${results.avgPre !== null ? Math.round(results.avgPre) : "—"}</span>
+        <span><i class="leg-dot post"></i>Post avg: ${results.avgPost !== null ? Math.round(results.avgPost) : "—"}</span>
+        <span style="margin-left:auto;color:var(--muted);font-size:.6rem;">(0=Agree, 100=Disagree)</span>
+      </div>
+    </div>
+    ` : ""}
+
+    <div class="movement-section">
+      <div class="movement-label">Movement</div>
+      <div class="move-row">
+        <div class="move-name" style="color:var(--agree)">→ ${affTeamName}</div>
+        <div class="move-bar-wrap">
+          <div class="move-bar agree" style="width:${pctAgree}%"></div>
+        </div>
+        <div class="move-count">${results.movedAgree}</div>
+      </div>
+      <div class="move-row">
+        <div class="move-name" style="color:var(--disagree)">→ ${negTeamName}</div>
+        <div class="move-bar-wrap">
+          <div class="move-bar disagree" style="width:${pctDisagree}%"></div>
+        </div>
+        <div class="move-count">${results.movedDisagree}</div>
+      </div>
+      <div class="move-row">
+        <div class="move-name">No Change</div>
+        <div class="move-bar-wrap">
+          <div class="move-bar none" style="width:${pctNone}%"></div>
+        </div>
+        <div class="move-count">${results.noMove}</div>
+      </div>
+    </div>
+
+    <div class="winner-banner ${results.winner}">
+      <span class="winner-label">Winner</span>
+      <span class="winner-val">${winnerLabel}</span>
+    </div>
+    <div style="display:flex;gap:.75rem;margin-top:.6rem;margin-bottom:.25rem;">
+      <div style="flex:1;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--agree);padding:.4rem .6rem;border:1px solid rgba(122,171,138,.25);border-radius:3px;">
+        AFF — ${affTeamName}
+      </div>
+      <div style="flex:1;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--disagree);padding:.4rem .6rem;border:1px solid rgba(196,125,110,.25);border-radius:3px;">
+        NEG — ${negTeamName}
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <div class="controls-title">Window Controls</div>
+
+      <div class="control-card">
+        <div class="control-card-head">
+          <span class="control-card-title">PRE-Debate Window</span>
+          <span class="control-status ${preStatus}">${preStatus === "open" ? "Open" : preStatus === "closed" && pre.closedAt ? "Closed" : "Not Started"}</span>
+        </div>
+        <div class="control-btns">
+          <button class="ctrl-btn open-btn ${pre.open ? "active" : ""}"
+            data-action="open-pre" data-round="${round.id}"
+            ${pre.open || pre.closedAt ? "disabled" : ""}>
+            Open
+          </button>
+          <button class="ctrl-btn close-btn"
+            data-action="close-pre" data-round="${round.id}"
+            ${!pre.open ? "disabled" : ""}>
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <div class="control-card-head">
+          <span class="control-card-title">POST-Debate Window</span>
+          <span class="control-status ${postStatus}">${post.open ? "Open" : post.closedAt ? "Closed" : "Not Started"}</span>
+        </div>
+        <div class="control-btns">
+          <button class="ctrl-btn open-btn ${post.open ? "active" : ""}"
+            data-action="open-post" data-round="${round.id}"
+            ${post.open || post.closedAt ? "disabled" : ""}>
+            Open
+          </button>
+          <button class="ctrl-btn close-btn"
+            data-action="close-post" data-round="${round.id}"
+            ${!post.open ? "disabled" : ""}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+// ── Event Listeners ────────────────────────────────────────────────────────
+function attachListeners() {
+  // Nav: switch round
+  document.querySelectorAll("[data-action='switch-round']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (localState.view === "instructor") {
+        setLocal(s => { s.view = "student"; s.activeTab = +btn.dataset.round; });
+      } else {
+        setLocal(s => { s.activeTab = +btn.dataset.round; });
+      }
+    });
+  });
+
+  // Nav: toggle instructor (password protected)
+  document.querySelector("[data-action='toggle-instructor']")?.addEventListener("click", () => {
+    if (localState.view === "instructor") {
+      setLocal(s => { s.view = "student"; });
+      return;
+    }
+    if (sessionStorage.getItem("instructor_auth") === "1") {
+      setLocal(s => { s.view = "instructor"; });
+      return;
+    }
+    const pwd = prompt("Instructor password:");
+    if (pwd !== null) {
+      crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd))
+        .then(buf => {
+          const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+          if (hash === "a1fb4e703a9ef1fa4936801721ff285a97ac85330856674412e054892afe6972") {
+            sessionStorage.setItem("instructor_auth", "1");
+            setLocal(s => { s.view = "instructor"; });
+          } else {
+            alert("Incorrect password.");
+          }
+        });
+    }
+  });
+
+  // Name selects — gate the slider/debater view
+  document.querySelectorAll("select.name-select").forEach(sel => {
+    const roundId = +sel.dataset.round;
+    const phase   = sel.dataset.phase;
+
+    sel.addEventListener("change", () => {
+      const name      = sel.value;
+      const actionEl  = document.getElementById(`form-action-${roundId}`);
+      if (!actionEl) return;
+
+      if (!name) { actionEl.innerHTML = ""; return; }
+
+      const teamId      = getStudentTeam(name);
+      const matchTeams  = MATCH_TEAMS[roundId];
+      const isDebater   = teamId && (teamId === matchTeams.aff || teamId === matchTeams.neg);
+
+      if (isDebater) {
+        const side = teamId === matchTeams.aff ? "Affirmative" : "Negative";
+        actionEl.innerHTML = `
+          <div class="state-card">
+            <div class="icon">◎</div>
+            <h3>You are debating this match</h3>
+            <p>${TEAMS[teamId].name} — ${side}</p>
+            <p style="margin-top:.5rem;font-size:.85rem;">Audience members vote. Good luck!</p>
+          </div>`;
+      } else {
+        actionEl.innerHTML = renderSliderForm(roundId, phase);
+        attachSliderListener(roundId, phase);
+      }
+    });
+  });
+
+  // Reset button
+  document.getElementById("reset-btn")?.addEventListener("click", () => {
+    if (!confirm("Reset ALL data? This clears every submission and closes all windows. Cannot be undone.")) return;
+    db.ref("debate/phases").remove().then(() => {
+      alert("All data has been reset.");
+    });
+  });
+
+  // Instructor controls
+  document.querySelectorAll("[data-action='open-pre']").forEach(btn => {
+    btn.addEventListener("click", () => openWindow(+btn.dataset.round, "pre"));
+  });
+  document.querySelectorAll("[data-action='close-pre']").forEach(btn => {
+    btn.addEventListener("click", () => closeWindow(+btn.dataset.round, "pre"));
+  });
+  document.querySelectorAll("[data-action='open-post']").forEach(btn => {
+    btn.addEventListener("click", () => openWindow(+btn.dataset.round, "post"));
+  });
+  document.querySelectorAll("[data-action='close-post']").forEach(btn => {
+    btn.addEventListener("click", () => closeWindow(+btn.dataset.round, "post"));
+  });
+}
+
+function handleSubmit(roundId, phase) {
+  const slider = document.getElementById(`position-slider-${roundId}`);
+  const sel    = document.getElementById(`name-select-${roundId}`);
+  const msgEl  = document.getElementById(`submit-msg-${roundId}`);
+  if (!slider || !sel || !msgEl) return;
+
+  const name  = sel.value;
+  const value = +slider.value;
+
+  if (!phases[roundId][phase].open) {
+    msgEl.innerHTML = `<div class="message error">This submission window is no longer open.</div>`;
+    return;
+  }
+
+  const alreadySubmitted = phases[roundId][phase].submissions[name] !== undefined;
+  const safeName = name.replace(/[.#$[\]]/g, "_");
+
+  db.ref(`debate/phases/${roundId}/${phase}/submissions/${safeName}`).set(value)
+    .then(() => {
+      msgEl.innerHTML = alreadySubmitted
+        ? `<div class="message warning">You've already submitted for this round. Your response has been updated.</div>`
+        : `<div class="message success">Your position has been recorded.</div>`;
+    })
+    .catch(() => {
+      msgEl.innerHTML = `<div class="message error">Submission failed. Please try again.</div>`;
+    });
+}
+
+function attachSliderListener(roundId, phase) {
+  const slider = document.getElementById(`position-slider-${roundId}`);
+  if (!slider) return;
+  const fill  = document.getElementById(`slider-fill-${roundId}`);
+  const valEl = document.getElementById(`slider-val-${roundId}`);
+  let moved = false;
+
+  function updateSlider() {
+    const v = +slider.value;
+    if (fill) fill.style.width = v + "%";
+    if (valEl) {
+      if (v < 20)      valEl.textContent = "Strongly Agree";
+      else if (v < 40) valEl.textContent = "Agree";
+      else if (v < 60) valEl.textContent = "Neutral";
+      else if (v < 80) valEl.textContent = "Disagree";
+      else              valEl.textContent = "Strongly Disagree";
+    }
+    if (!moved && v !== 50) moved = true;
+    const btn = document.getElementById(`submit-btn-${roundId}`);
+    if (btn) btn.disabled = !moved;
+  }
+
+  slider.addEventListener("input", updateSlider);
+  slider.addEventListener("change", updateSlider);
+
+  const btn = document.getElementById(`submit-btn-${roundId}`);
+  if (btn) btn.addEventListener("click", () => handleSubmit(roundId, phase));
+}
+
+function openWindow(roundId, phase) {
+  db.ref(`debate/phases/${roundId}/${phase}/open`).set(true);
+}
+
+function closeWindow(roundId, phase) {
+  db.ref(`debate/phases/${roundId}/${phase}`).update({
+    open: false,
+    closedAt: Date.now()
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+initFirebase();
+</script>
+</body>
+</html>
